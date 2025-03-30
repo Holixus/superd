@@ -1,0 +1,56 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:		superd
+# Required-Start:	$syslog
+# Required-Stop:	$syslog
+# Default-Start:	2 3 4 5
+# Default-Stop:		1
+# Short-Description:	superd schedual processes running
+### END INIT INFO
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/superd
+NAME=superd
+DESC="superd schedual processes running"
+PIDFILE=/var/run/superd.pid
+
+set -e
+
+[ -x "$DAEMON" ] || exit 0
+
+stop()
+{
+	start-stop-daemon -K -x "$DAEMON" -p $PIDFILE
+}
+
+run()
+{
+	start-stop-daemon -S -p $PIDFILE -x "$DAEMON"
+}
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	run
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	stop
+	echo "$NAME."
+	;;
+  restart|force-reload)
+	echo -n "Restarting $DESC: "
+	stop
+	sleep 1
+	run
+	echo "$NAME."
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
