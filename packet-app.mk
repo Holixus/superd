@@ -37,6 +37,8 @@ $(PROJECT_NAME): $(OBJS) Makefile
 
 include $(MKINC)pkt-depend.mk
 
+rebuild: clean all
+
 clean:
 	rm -f $(DEPEND)
 	rm -f $(OBJS) $(PROJECT_NAME)
