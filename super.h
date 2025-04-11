@@ -36,7 +36,7 @@ ssize_t super(char const *cmd, char const *id, char **argv, int argc, char *resu
 	out = stpcpy(out, cmd) + 1;
 	out = stpcpy(out, id) + 1;
 	while (argc-- > 0) {
-		size_t len = strlen(*argv)+1;
+		size_t len = strlen(*argv) + 1;
 		memcpy(out, *argv++, len);
 		out += len;
 	}

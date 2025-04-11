@@ -23,7 +23,7 @@
 #include "config.h"
 #include "super.h"
 
-#define LOG_NAME "superd"
+char const *prog_name;
 
 #include "time.i"
 #include "queue.i"
@@ -63,59 +63,118 @@ static int receive_command(int sock, cmd_t *cmd)
 {
 	memset(cmd, 0, sizeof(*cmd));
 	char *out = cmd->buf, *parsed = cmd->buf;
-	int line_start = 1, start = 1, argc = 0;
+	enum { START, LINE_START, LINE } stage = START;
+	int argc = 0;
 	while (1) {
-		if (parsed >= out) {
-			ssize_t rcvd = recv(sock, out, (size_t)(out + sizeof(cmd->buf) - cmd->buf - 1), 0);
-
-			if (rcvd < 0) {
-				if (errno == EINTR)
-					continue;
-				else {
-					perror("recv");
-					if (errno == EPIPE)
-						return 0;
-					return -1;
-				}
+		ssize_t rcvd = recv(sock, out, (size_t)(out + sizeof(cmd->buf) - cmd->buf - 1), 0);
+		if (rcvd < 0) {
+			if (errno == EINTR)
+				continue;
+			else {
+				if (errno == EPIPE)
+					return 0;
+				syslog(LOG_ERR, "command recv: %m");
+				return -1;
 			}
-
-			if (!rcvd)
-				return 0;
-
-			out[rcvd] = 0;
-			out += rcvd;
 		}
 
-		if (start)
-			start = (argc = *parsed++, 0);
+		if (!rcvd)
+			return 0;
 
-		if (line_start) {
-			if (cmd->argc < countof(cmd->argv))
-				cmd->argv[cmd->argc++] = parsed;
-			line_start = 0;
+		out += rcvd;
+
+		while (parsed < out) {
+			switch (stage) {
+			case START:
+				argc = *parsed++; // get number of args
+				stage = LINE_START;
+
+			case LINE_START:
+				if (cmd->argc < countof(cmd->argv))
+					cmd->argv[cmd->argc++] = parsed;
+				stage = LINE;
+
+			case LINE:
+				if (!parsed[0]) { // zero char (end of line)
+					if (!--argc)
+						return cmd->argc;
+					stage = LINE_START;
+				}
+				break;
+			}
+			++parsed;
 		}
-		if (!parsed[0]) {
-			if (!--argc)
-				return cmd->argc;
-			line_start = 1;
-		}
-		++parsed;
 	}
 
 	return 0;
 }
 
+/* -------------------------------------------------------------------------- */
+static int create_pid_file(char const *pid_file)
+{
+	if (!pid_file || !pid_file[0])
+		return -1;
+
+	int fd = open(pid_file, O_CREAT|O_WRONLY, S_IRWXU);
+	if (fd < 0) {
+		syslog(LOG_ERR, "failed to create pid-file '%s' (%m)", pid_file);
+		return -1;
+	}
+
+	char s[64];
+	int len = snprintf(s, sizeof s, "%d\n", getpid());
+	ssize_t wn = write(fd, s, len);
+	if (wn < 0) {
+		syslog(LOG_ERR, "failed to write pid-file '%s' (%m)", pid_file);
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	return 0;
+}
+
 /* ------------------------------------------------------------------------ */
-static void __die()
+static void __die(int sig, void *pid_file)
 {
 	kill(-2, SIGTERM); /* kill all(by sigterm) child processes */
+	if (pid_file)
+		unlink((char const *)pid_file);
 }
+
+#ifdef HOST_DEBUG
+# define LOG_MODE   LOG_PID|LOG_PERROR
+#else
+# define LOG_MODE   LOG_PID
+#endif
 
 /* ------------------------------------------------------------------------ */
 int main(int argc, char **argv)
 {
+	prog_name = strrchr(argv[0], '/') ?: argv[0];
+	if (*prog_name == '/')
+		++prog_name;
+
+	openlog(prog_name, LOG_PID|LOG_PERROR, LOG_USER);
+
+	static char pid_file[256];
+	pid_file[0] = 0;
+
 #ifndef HOST_DEBUG
-	if (argc < 2 || strcmp(argv[1], "-F")) {
+	unsigned nodaemon = 0;
+	for (unsigned i = 1; i < argc; ++i) {
+		if (!strcmp(argv[i], "-F"))
+			nodaemon = 1;
+		else
+			if (!strcmp(argv[i], "-P")) {
+				if (i + 1 < argc && argv[i + 1][0] != '-') {
+					snprintf(pid_file, sizeof pid_file, "%s", argv[++i]);
+					continue;
+				}
+				snprintf(pid_file, sizeof pid_file, "/var/run/%s.pid", prog_name);
+				syslog(LOG_INFO, "pid_file: %s", pid_file);
+			}
+	}
+	if (!nodaemon) {
 		if (daemon(0, 1) < 0) {
 			syslog(LOG_ERR, "daemonize failed (%m)");
 			exit(1);
@@ -125,13 +184,13 @@ int main(int argc, char **argv)
 
 	init_signals();
 
-#ifdef HOST_DEBUG
-# define LOG_MODE   LOG_PID|LOG_PERROR
-#else
-# define LOG_MODE   LOG_PID
-#endif
-	openlog(LOG_NAME, LOG_MODE, LOG_DAEMON);
-	atexit(__die);
+	openlog(prog_name, LOG_PID|LOG_PERROR, LOG_DAEMON);
+
+	if (pid_file[0]) {
+		if (create_pid_file(pid_file) < 0)
+			exit(1);
+		on_exit(__die, pid_file);
+	}
 
 	queues_restore(BACKUP_FILENAME);
 

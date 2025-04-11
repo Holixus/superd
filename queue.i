@@ -238,7 +238,7 @@ static int proc_start(proc_t *p)
 		execvp(p->argv[0], p->argv);
 		char cmd[1000];
 		proc_get_cmd(p, cmd, sizeof(cmd));
-		openlog(LOG_NAME, LOG_PID|LOG_PERROR, LOG_DAEMON);
+		openlog(prog_name, LOG_PID|LOG_PERROR, LOG_DAEMON);
 		syslog(LOG_ERR, "[%s] failed execv '%s': %m", p->id, cmd);
 		closelog();
 		exit(-1);

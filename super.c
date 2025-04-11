@@ -25,12 +25,11 @@ int main(int argc, char **argv)
 {
 	signal(SIGPIPE, SIG_IGN);
 
-	unsigned quiet = 0;
-	char result[4096];
 	char const *action = NULL;
 	char const *id = NULL;
-	unsigned i = 1;
+	unsigned quiet = 0;
 
+	unsigned i = 1;
 	for (; !action && !id && i < argc; ++i) {
 		char const *arg = argv[i];
 		if (arg[0] == '-') {
@@ -46,9 +45,10 @@ int main(int argc, char **argv)
 			id = arg;
 	}
 
-	ssize_t len = argc < 2 ?
+	char result[4096];
+	ssize_t len = !action ?
 				super("help", "", NULL, 0, result, sizeof(result)-1) :
-				super(action, id, argv + i, argc - i, result, sizeof(result)-1);
+				super(action, id ?: "", argv + i, argc - i, result, sizeof(result)-1);
 
 	if (len < 0)
 		err(-1, "socket %s", len == -1 ? SUPERD_SOCKET : "read");
