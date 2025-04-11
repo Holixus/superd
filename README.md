@@ -10,16 +10,22 @@ Realy small cron like tasks(processes) scheduler/monitor but without config file
 
 ## `superd` daemon
 
+```
+# superd -F -P pid_file
 Usage:
-	-F   Run in foreground mode (no as daemon)
-	
+	-F   Run in foreground mode (no as daemon);
+	-P   store PID of superd to the file.
+```
+
 ## `super` control utility
 
 `super <command> <id> ...`
 
 ### Commands
 ```
-# super <action> <id> [-w] [-d <delay>] [-p <period>] <command-line>
+# super -q <action> <id> [-w] [-d <delay>] [-p <period>] <command-line>
+options:
+  -q           -- quiet (hide of error messages)
 actions:
   sched <id> [-l] [-q] [-w] [-d <delay>] [-p <period>] <command-line>
 	-- schedule the program to run once or periodicaly
@@ -37,7 +43,7 @@ actions:
 	-- list current queue
   remove <id> [-l]
 	-- stop and remove a queued item
-options:
+actions options:
   -q           -- redirect all output to /dev/null
   -l           -- leave the old queued item to die by it self
   -w           -- wait for exit
