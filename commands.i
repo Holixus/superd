@@ -434,9 +434,9 @@ _help:;
 	result.sock = sock;
 	if (++cur_arg < end_arg) {
 		char const *id = *cur_arg;
-		while (*id && (isalnum(*id) || *id == '_'))
+		while (*id && (isalnum(*id) || *id == '_' || *id == '-'))
 			++id;
-		ret = fn(&result, *cur_arg, cur_arg + 1, (int)(end_arg - cur_arg - 1));
+		ret = fn(&result, !*id ? *cur_arg : "", cur_arg + 1, (int)(end_arg - cur_arg - 1));
 	} else {
 		ret = fn(&result, "", cur_arg, (int)(end_arg - cur_arg));
 	}

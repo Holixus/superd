@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 	unsigned quiet = 0;
 
 	unsigned i = 1;
-	for (; !action && !id && i < argc; ++i) {
+	for (; (!action || !id) && i < argc; ++i) {
 		char const *arg = argv[i];
 		if (arg[0] == '-') {
 			if (arg[1] == 'q' && !arg[2]) {
