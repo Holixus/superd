@@ -133,12 +133,14 @@ static int create_pid_file(char const *pid_file)
 	return 0;
 }
 
+static char pid_file[256];
+
 /* ------------------------------------------------------------------------ */
-static void __die(int sig, void *pid_file)
+static void __die(void)
 {
 	kill(-2, SIGTERM); /* kill all(by sigterm) child processes */
-	if (pid_file)
-		unlink((char const *)pid_file);
+	if (pid_file[0])
+		unlink(pid_file);
 }
 
 #ifdef HOST_DEBUG
@@ -156,7 +158,6 @@ int main(int argc, char **argv)
 
 	openlog(prog_name, LOG_PID|LOG_PERROR, LOG_USER);
 
-	static char pid_file[256];
 	pid_file[0] = 0;
 
 #ifndef HOST_DEBUG
@@ -189,7 +190,7 @@ int main(int argc, char **argv)
 	if (pid_file[0]) {
 		if (create_pid_file(pid_file) < 0)
 			exit(1);
-		on_exit(__die, pid_file);
+		atexit(__die);
 	}
 
 	queues_restore(BACKUP_FILENAME);
