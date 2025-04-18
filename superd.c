@@ -162,6 +162,7 @@ int main(int argc, char **argv)
 
 #ifndef HOST_DEBUG
 	unsigned nodaemon = 0;
+	unsigned verbose = 0;
 	for (unsigned i = 1; i < argc; ++i) {
 		if (!strcmp(argv[i], "-F"))
 			nodaemon = 1;
@@ -173,7 +174,9 @@ int main(int argc, char **argv)
 				}
 				snprintf(pid_file, sizeof pid_file, "/var/run/%s.pid", prog_name);
 				syslog(LOG_INFO, "pid_file: %s", pid_file);
-			}
+			} else
+				if (!strcmp(argv[i], "-V"))
+					verbose = 1;
 	}
 	if (!nodaemon) {
 		if (daemon(0, 1) < 0) {
@@ -186,6 +189,7 @@ int main(int argc, char **argv)
 	init_signals();
 
 	openlog(prog_name, LOG_PID|LOG_PERROR, LOG_DAEMON);
+	setlogmask(LOG_UPTO(verbose ? LOG_DEBUG : LOG_INFO));
 
 	if (pid_file[0]) {
 		if (create_pid_file(pid_file) < 0)
